@@ -1,0 +1,244 @@
+service: email-clean-service
+frameworkVersion: "3"
+
+package:
+  excludeDevDependencies: true
+  individually: true
+  patterns:
+    - "!node_modules/@aws-sdk/**"
+    - "!node_modules/aws-sdk/**"
+    - "!node_modules/**/node_modules/aws-sdk/**"
+    - "!node_modules/**/node_modules/@aws-sdk/**"
+    - "!node_modules/**/node_modules/**/node_modules/aws-sdk/**"
+
+provider:
+  name: aws
+  runtime: nodejs16.x
+  timeout: 60
+  httpApi:
+    cors: true
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - "s3:*"
+      Resource: "*"
+    - Effect: "Allow"
+      Action:
+        - "lambda:InvokeFunction"
+      Resource: "*"
+    - Effect: "Allow"
+      Action:
+        - "kms:Decrypt"
+      Resource: "*"
+    - Effect: "Allow"
+      Action:
+        - "dynamodb:PutItem"
+        - "dynamodb:GetItem"
+        - "dynamodb:DeleteItem"
+        - "dynamodb:Scan"
+      Resource: "*"
+    - Effect: Allow
+      Action:
+        - "states:StartExecution"
+        - "states:DescribeExecution"
+      Resource: "*"
+    - Effect: "Allow"
+      Action:
+        - "sns:*"
+      Resource: "*"
+  environment:
+    AWS_S3_BUCKET: email-srv-bucket
+    STATE_MACHINE_ARN: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:email-clean-state-machine"
+    FILE_UPLOAD_TOPIC_ARN:
+      {
+        "Fn::Sub": "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:email-srv-topic",
+      }
+functions:
+  s3EventHandler:
+    handler: src/s3-event-handler.handler
+    events:
+      - s3:
+          bucket: email-srv-bucket
+          event: s3:ObjectCreated:*
+          existing: true
+    environment:
+      statemachine_arn: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:email-clean-state-machine"
+  httpApiHandler:
+    handler: src/handler.handler
+    events:
+      - httpApi: "*"
+  splitInputFiles:
+    handler: src/split-input-files.handler
+  processAndValidateChunk:
+    handler: src/process-chunk.handler
+    timeout: 900
+    memorySize: 2048
+  mergeAllChunks:
+    handler: src/merge-all-chunks.handler
+    timeout: 900
+    memorySize: 2048
+  cleanListApiHandler:
+    handler: src/clean-list.handler
+    events:
+      - httpApi:
+          path: /clean-list
+          method: post
+
+plugins:
+  - serverless-offline
+  - serverless-s3-local
+  - serverless-plugin-typescript
+  - serverless-step-functions
+
+resources:
+  Resources:
+    S3Bucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: email-srv-bucket
+        CorsConfiguration:
+          CorsRules:
+            - AllowedOrigins:
+                - "*"
+              AllowedHeaders:
+                - "*"
+              AllowedMethods:
+                - GET
+                - PUT
+                - POST
+                - DELETE
+                - HEAD
+              MaxAge: 3000
+    UploadHandlTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: email-srv-topic
+    FilesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: email-files
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+          - AttributeName: originalFileName
+            AttributeType: S
+        GlobalSecondaryIndexes:
+          - IndexName: FileNameIndex
+            KeySchema:
+              - AttributeName: originalFileName
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+            ProvisionedThroughput:
+              ReadCapacityUnits: 1
+              WriteCapacityUnits: 1
+    EmailCleanStateMachineRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: email-clean-state-machine-role
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - states.amazonaws.com
+              Action:
+                - sts:AssumeRole
+        Policies:
+          - PolicyName: email-clean-state-machine-policy
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - lambda:InvokeFunction
+                  Resource: "*"
+                - Effect: Allow
+                  Action:
+                    - s3:*
+                  Resource: "*"
+                - Effect: Allow
+                  Action:
+                    - dynamodb:*
+                  Resource: "*"
+                - Effect: Allow
+                  Action:
+                    - kms:Decrypt
+                  Resource: "*"
+
+stepFunctions:
+  validate: true
+  stateMachines:
+    emailCleanStateMachine:
+      name: email-clean-state-machine
+      definition:
+        Comment: "Split input files into chunks"
+        StartAt: SplitInputFiles
+        States:
+          SplitInputFiles:
+            Type: Task
+            Resource:
+              Fn::GetAtt: [splitInputFiles, Arn]
+            ResultPath: "$.splitOutput"
+            Next: ExecuteStepFnForEachChunk
+          ExecuteStepFnForEachChunk:
+            Type: Map
+            ItemsPath: "$.splitOutput.splitFileNames"
+            Parameters:
+              {
+                "FilePath.$": "$$.Map.Item.Value",
+                "FileIndex.$": "$$.Map.Item.Index",
+                "BucketName.$": "$.splitOutput.bucketName",
+                "id.$": "$.splitOutput.id",
+              }
+            MaxConcurrency: 3
+            ResultPath: "$.mapOutput"
+            Next: MergeAllChunks
+            Iterator:
+              StartAt: ProcessAndValidateChunk
+              States:
+                ProcessAndValidateChunk:
+                  Type: Task
+                  Resource:
+                    Fn::GetAtt: [processAndValidateChunk, Arn]
+                  Parameters:
+                    {
+                      "FilePath.$": "$.FilePath",
+                      "FileIndex.$": "$.FileIndex",
+                      "BucketName.$": "$.BucketName",
+                      "id.$": "$.id",
+                    }
+                  End: true
+          MergeAllChunks:
+            Type: Task
+            Resource:
+              Fn::GetAtt: [mergeAllChunks, Arn]
+            Parameters:
+              {
+                "id.$": "$.splitOutput.id",
+                "bucketName.$": "$.splitOutput.bucketName",
+              }
+            ResultPath: "$.mergeOutput"
+            Retry:
+              - ErrorEquals:
+                  - States.ALL
+                IntervalSeconds: 2
+                MaxAttempts: 6
+                BackoffRate: 2
+            End: true
+custom:
+  logRetentionInDays: 2
+  serverless-offline:
+    s3:
+      host: localhost # Optional: Set the S3 host to emulate locally
+      port: 4569 # Optional: Set the port number for the S3 service
+      directory: /tmp
+      skipCacheInvalidation: true # Optional: Disable cache invalidation
+      cors: true
