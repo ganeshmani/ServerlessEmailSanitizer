@@ -4,11 +4,11 @@ A tool that helps businesses clean their email lists by removing invalid or inac
 
 ## Demo
 
-Insert gif or link to demo
+![Demo](Demo.gif)
 
 ## Architecture Diagram
 
-Arch diagram comes here
+![Architecture Diagram](ArchDiragram.png)
 
 ## Tech Stack
 
@@ -41,6 +41,10 @@ Project mainly split into `client` and `server` side of code.
  npm run deploy
 ```
 
+Once you deploy lambda functions using serverless, you will see the successful deployment as below
+
+![Deployment](Deployment.png)
+
 ### Client Setup
 
 ### Install Dependencies
@@ -52,6 +56,10 @@ Project mainly split into `client` and `server` side of code.
 
 ### Environment variable
 
+Create `.env.local` use add the following environment
+
 ```bash
 NEXT_PUBLIC_API_URL=
 ```
+
+Use the Serverless URL from the above deployment in Client side `.env.local`
