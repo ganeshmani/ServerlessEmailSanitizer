@@ -8,7 +8,7 @@ Insert gif or link to demo
 
 ## Tech Stack
 
-**Client:** Nextjs 13, TailwindCSS, UI(Shadcn)
+**Client:** Nextjs 13, TailwindCSS, [UI(Shadcn)](https://ui.shadcn.com/)
 
 **Server:** Nodejs, AWS Step Functions, AWS SNS, AWS S3, AWS DynamoDB
 
@@ -46,6 +46,8 @@ Project mainly split into `client` and `server` side of code.
   npm install
 ```
 
-### Environment Variable
+### Environment variable
 
-Once you deploy
+```bash
+NEXT_PUBLIC_API_URL=
+```

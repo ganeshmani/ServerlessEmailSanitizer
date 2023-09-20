@@ -136,8 +136,12 @@ export default function FilesCard({ file }: { file: any }) {
           </span>
         </div>
       ) : (
-        <div>
-          <p className="font-semibold text-md">In Progress...</p>
+        <div className="w-2/5 border shadow rounded-md flex items-center justify-center space-x-4">
+          <div className="my-auto">
+            <p className="font-semibold text-md text-center">
+              Processing file...
+            </p>
+          </div>
         </div>
       )}
 
