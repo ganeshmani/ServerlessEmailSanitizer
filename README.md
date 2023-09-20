@@ -6,6 +6,10 @@ A tool that helps businesses clean their email lists by removing invalid or inac
 
 Insert gif or link to demo
 
+## Architecture Diagram
+
+Arch diagram comes here
+
 ## Tech Stack
 
 **Client:** Nextjs 13, TailwindCSS, [UI(Shadcn)](https://ui.shadcn.com/)
