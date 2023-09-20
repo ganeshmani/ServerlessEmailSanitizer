@@ -158,50 +158,6 @@ export default function Dashboard() {
           </Button>
         )}
       </div>
-      {/* Display uploaded files */}
-      {/* <div className="w-full mt-4">
-        {files.length > 0 && (
-          <div className=" pt-4">
-            <h4 className="mb-2 font-semibold text-gray-600">
-              Uploaded Files:
-            </h4>
-            <ul className="divide-y  divide-gray-100 overflow-hidden bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl">
-              {files.map((file: any, index) => {
-                console.log(
-                  "uploadProgress",
-                  uploadProgress[file.name] ? uploadProgress[file.name] : 0
-                );
-                return (
-                  <li
-                    key={index}
-                    className="relative flex flex-col justify-between gap-x-6 px-4 py-5 hover:bg-gray-50 sm:px-6"
-                  >
-                    <div className="mb-2">{file.name}</div>
-                    {uploadProgress[file.name] === 100 ? (
-                      <span className="bg-green-100 text-green-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300">
-                        Completed
-                      </span>
-                    ) : (
-                      <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                        <div
-                          className="bg-blue-600 h-2.5 rounded-full"
-                          style={{
-                            width: `${
-                              uploadProgress[file.name]
-                                ? uploadProgress[file.name]
-                                : 0
-                            }%`,
-                          }}
-                        ></div>
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        )}
-      </div> */}
 
       {isLoading ? (
         <div className="py-4">

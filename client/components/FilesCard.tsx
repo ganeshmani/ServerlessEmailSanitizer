@@ -124,16 +124,22 @@ export default function FilesCard({ file }: { file: any }) {
         </div>
       </div>
 
-      <div className="w-2/5 border shadow rounded-md flex items-center justify-center space-x-4">
-        <p className="font-bold text-lg">Estimated Bounce Rate:</p>
-        <span
-          className={`font-bold text-lg ${calculateBounceRateRiskColor(
-            file.bounceRate
-          )}`}
-        >
-          {Math.round(file.bounceRate)}%
-        </span>
-      </div>
+      {file.state === "finished" || file.state === "processed" ? (
+        <div className="w-2/5 border shadow rounded-md flex items-center justify-center space-x-4">
+          <p className="font-bold text-lg">Estimated Bounce Rate:</p>
+          <span
+            className={`font-bold text-lg ${calculateBounceRateRiskColor(
+              file.bounceRate
+            )}`}
+          >
+            {Math.round(file.bounceRate)}%
+          </span>
+        </div>
+      ) : (
+        <div>
+          <p className="font-semibold text-md">In Progress...</p>
+        </div>
+      )}
 
       <div className="w-1/5 flex justify-around items-center">
         {file.state === "finished" && isCleaning ? (

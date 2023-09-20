@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-const API_URL = "https://owr5xv86b4.execute-api.us-east-1.amazonaws.com/";
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 export async function GET() {
   try {
     const response = await fetch(`${API_URL}/files`, {
