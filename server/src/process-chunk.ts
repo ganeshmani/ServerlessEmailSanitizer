@@ -1,18 +1,19 @@
-import { Handler, S3Event, Context, Callback } from "aws-lambda";
-import * as AWS from "aws-sdk";
-import dns from "dns";
-import fs from "fs";
-import * as fastcsv from "fast-csv";
+import { Handler, S3Event, Context, Callback } from 'aws-lambda';
+import * as AWS from 'aws-sdk';
+// import dns from 'dns';
+const dns2 = require('dns2');
+const domains = require('disposable-email-domains');
+import * as fastcsv from 'fast-csv';
 
-import stream from "stream";
-const EmailValidator = require("email-deep-validator");
-
+import stream from 'stream';
+const EmailValidator = require('email-deep-validator');
 // Initialize S3 client
 const s3 = new AWS.S3();
 const emailValidator = new EmailValidator();
+const dns = new dns2();
 
 // Your list of disposable email providers
-const disposableEmailProviders = ["example.com", "example2.com"];
+const disposableEmailProviders = ['example.com', 'example2.com'];
 
 // 1. Syntax check
 function syntaxCheck(email: string) {
@@ -22,25 +23,31 @@ function syntaxCheck(email: string) {
 
 // 2. Domain/MX record check
 async function domainCheck(email: string) {
-  const domain = email.split("@")[1];
+  const domain = email.split('@')[1];
+  console.log('domain', domain);
   try {
-    await dns.promises.resolveMx(domain);
-    return true;
+    const res = await dns.resolveA(domain);
+
+    if (res.answers.length === 0) {
+      return false;
+    } else {
+      return true;
+    }
   } catch (error) {
+    console.log('error', error);
     return false;
   }
 }
-
 // 3. Disposable Email Provider Check
 function disposableEmailCheck(email: string) {
-  const domain = email.split("@")[1];
+  const domain = email.split('@')[1];
   return !disposableEmailProviders.includes(domain);
 }
 
 // 4. SMTP Deep-Level Check
 async function smtpCheck(email: string) {
   const { wellFormed, validDomain, validMailbox } = await emailValidator.verify(
-    email
+    email,
   );
   return wellFormed && validDomain && validMailbox;
 }
@@ -48,11 +55,9 @@ async function smtpCheck(email: string) {
 export const handler: Handler = async (
   event: any,
   context: Context,
-  callback: Callback
+  callback: Callback,
 ) => {
   const { FilePath, FileIndex, BucketName, id } = event;
-
-  console.log("Event: ", JSON.stringify(event, null, 2));
 
   await new Promise(async (resolve, reject) => {
     try {
@@ -67,13 +72,13 @@ export const handler: Handler = async (
 
       let rows: any[] = [];
 
-      parser.on("data", async (row: any) => {
+      parser.on('data', async (row: any) => {
         rows.push(row);
       });
 
-      parser.on("end", async () => {
+      parser.on('end', async () => {
         for (const row of rows) {
-          const email = row["Email"]; // Extract the email using the index
+          const email = row['Email']; // Extract the email using the index
 
           row.isEmailClean =
             email &&
@@ -81,7 +86,6 @@ export const handler: Handler = async (
             disposableEmailCheck(email) &&
             (await domainCheck(email)); // && await smtpCheck(email)
         }
-        console.log("rows", rows);
 
         const csvString = await new Promise((resolve, reject) => {
           fastcsv
@@ -90,20 +94,16 @@ export const handler: Handler = async (
             .catch((err) => reject(err));
         });
 
-        console.log("csvString", csvString);
         const uploadParams: any = {
           Bucket: BucketName,
           Key: `${id}/output-${FileIndex}.csv`,
           Body: csvString,
         };
-        console.log("uploading to s3...");
         // Upload the results to S3
         try {
-          const result = await s3.upload(uploadParams).promise();
-
-          console.log("result", result);
+          await s3.upload(uploadParams).promise();
         } catch (error) {
-          console.log("error", error);
+          console.log('error', error);
         }
 
         resolve(null);
