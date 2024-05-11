@@ -1,4 +1,4 @@
-import { DocumentClient } from "aws-sdk/clients/dynamodb";
+import { DocumentClient } from 'aws-sdk/clients/dynamodb';
 
 export default class DBClient {
   public readonly dynamodb: DocumentClient;

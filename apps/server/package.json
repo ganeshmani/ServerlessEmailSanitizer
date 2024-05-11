@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start:dev": "sls offline start",
+    "dev": "sls offline start",
     "build": "tsc",
     "deploy": "serverless deploy --stage dev --force",
     "destroy": "serverless remove --stage dev",

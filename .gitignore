@@ -1,0 +1,10 @@
+
+
+apps/server/node_modules
+apps/server/.build
+apps/server/.serverless
+apps/server/.gitignore
+
+apps/client/node_modules
+apps/client/.next
+apps/client/.gitignore
